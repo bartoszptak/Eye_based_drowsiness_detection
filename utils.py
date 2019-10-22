@@ -12,6 +12,7 @@ predictor = dlib.shape_predictor(
     path.join('data', 'shape_predictor_68_face_landmarks.dat'))
 
 EYE_AR_THRESH = 0.15
+MOUTH_AR_THRESH = 1.0
 
 def cut_img_to_square(img):
     shape = img.shape
@@ -62,6 +63,22 @@ def crop_eyes(image, left, right):
 
 def get_mouth_points(shape):
     return shape[49:60]
+
+def mouth_aspect_ratio(mouth):
+    A = dist.euclidean(mouth[2], mouth[10])
+    B = dist.euclidean(mouth[3], mouth[9])
+    C = dist.euclidean(mouth[4], mouth[8])
+
+    D = dist.euclidean(mouth[0], mouth[6])
+
+    return (A + B + C) / (3.0 * D)
+
+def check_mouth(mouth):
+    mar = mouth_aspect_ratio(mouth)
+
+    if mar > MOUTH_AR_THRESH:
+        return Events.MOUTH_OPEN
+
 
 def test_draw_face_points(image, shape):
     for (x, y) in shape:

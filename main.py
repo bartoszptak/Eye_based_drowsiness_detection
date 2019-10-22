@@ -28,9 +28,11 @@ if __name__ == '__main__':
         eye_close = check_eyes(left, right)
         if Events.is_event(eye_close):
             Events.handle(eye_close)
-            continue
 
-        print(get_mouth_points(shape))
+        mouth_open = check_mouth(get_mouth_points(shape))
+        if Events.is_event(mouth_open):
+            Events.handle(mouth_open)
+
 
         left_img, right_img = crop_eyes(img, left, right)
 
