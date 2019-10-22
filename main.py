@@ -30,7 +30,9 @@ if __name__ == '__main__':
             Events.handle(eye_close)
             continue
 
-        print(get_eye_aspect_ratio(left), get_eye_aspect_ratio(right))
+        print(get_mouth_points(shape))
+
+        left_img, right_img = crop_eyes(img, left, right)
 
 
         test_draw_face_points(img, shape)

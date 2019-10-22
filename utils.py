@@ -51,6 +51,15 @@ def check_eyes(left, right):
     if L < EYE_AR_THRESH and R < EYE_AR_THRESH:
         return Events.EYE_CLOSE
 
+def crop_eyes(image, left, right):
+    left_img = image[min(left[:, 1]) - 5:max(left[:, 1]) + 5,
+                    min(left[:, 0]) - 5:max(left[:, 0]) + 5]
+
+    right_img = image[min(right[:, 1]) - 5:max(right[:, 1]) + 5,
+                    min(right[:, 0]) - 5:max(right[:, 0]) + 5]
+
+    return left_img, right_img
+
 def get_mouth_points(shape):
     return shape[49:60]
 
