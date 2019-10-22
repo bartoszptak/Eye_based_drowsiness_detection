@@ -1,9 +1,11 @@
 from os import path
+import numpy as np
 
 import cv2
 import dlib
 from imutils import face_utils
 from scipy.spatial import distance as dist
+import tensorflow as tf
 
 from Events import Events
 
@@ -11,8 +13,10 @@ detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor(
     path.join('data', 'shape_predictor_68_face_landmarks.dat'))
 
+FACE_THRESH = 25
 EYE_AR_THRESH = 0.15
 MOUTH_AR_THRESH = 1.0
+FOCUS_THRESH = [0.5, 0.1]
 
 def cut_img_to_square(img):
     shape = img.shape
@@ -32,6 +36,9 @@ def get_face_points(image):
     for (i, rect) in enumerate(rects):
         shape = predictor(gray, rect)
         shape = face_utils.shape_to_np(shape)
+    
+    if abs(shape[32][0]-shape[3][0]) < FACE_THRESH or abs(shape[15][0]-shape[36][0])-100 < FACE_THRESH:
+        return Events.NO_FACE
 
     return shape
 
@@ -49,7 +56,7 @@ def check_eyes(left, right):
     L = get_eye_aspect_ratio(left)
     R = get_eye_aspect_ratio(right)
 
-    if L < EYE_AR_THRESH and R < EYE_AR_THRESH:
+    if (L+R)/2 < EYE_AR_THRESH:
         return Events.EYE_CLOSE
 
 def crop_eyes(image, left, right):
@@ -59,27 +66,148 @@ def crop_eyes(image, left, right):
     right_img = image[min(right[:, 1]) - 5:max(right[:, 1]) + 5,
                     min(right[:, 0]) - 5:max(right[:, 0]) + 5]
 
-    return left_img, right_img
-
-def get_mouth_points(shape):
-    return shape[49:60]
-
-def mouth_aspect_ratio(mouth):
-    A = dist.euclidean(mouth[2], mouth[10])
-    B = dist.euclidean(mouth[3], mouth[9])
-    C = dist.euclidean(mouth[4], mouth[8])
-
-    D = dist.euclidean(mouth[0], mouth[6])
-
-    return (A + B + C) / (3.0 * D)
-
-def check_mouth(mouth):
-    mar = mouth_aspect_ratio(mouth)
-
-    if mar > MOUTH_AR_THRESH:
-        return Events.MOUTH_OPEN
+    return left_img, cv2.flip(right_img, +1)
 
 
 def test_draw_face_points(image, shape):
     for (x, y) in shape:
         cv2.circle(image, (x, y), 1, (0, 0, 255), -1)
+
+def create_session_get_in_out(graph_path):
+    tf.reset_default_graph()
+    session = tf.Session()
+
+    with tf.gfile.GFile(graph_path, 'rb') as f:
+        graph_def = tf.GraphDef()
+        graph_def.ParseFromString(f.read())
+
+    session.graph.as_default()
+    tf.import_graph_def(graph_def)
+
+    inp = session.graph.get_tensor_by_name("import/input_2:0")
+    outp = session.graph.get_tensor_by_name("import/0_conv_1x1_parts/BiasAdd:0")
+
+    return session, inp, outp
+
+def predict(image, sess, inp, outp):
+    return sess.run(outp, feed_dict={inp: image})
+
+def predict_eye(images, sess, inp, outp):
+    input_data = preprocessing(images)
+    predicted = predict(input_data, sess, inp, outp)
+    return postprocessing(predicted)
+
+def preprocessing(images):
+    left, right = images
+
+    left = cv2.cvtColor(left, cv2.COLOR_BGR2GRAY)
+    left = cv2.resize(left, (128, 90))
+    left = normalize(left)
+
+    right = cv2.cvtColor(right, cv2.COLOR_BGR2GRAY)
+    right = cv2.resize(right, (128, 90))
+    right = normalize(right)
+
+    _image = np.zeros(shape=(2, 128, 128, 1), dtype=np.float)
+
+    _image[0, :90, :128, 0] = left
+    _image[1, :90, :128, 0] = right
+
+    return _image
+
+def postprocessing(heatmaps):
+    results = np.zeros((2, 7, 2))
+    for i, heatmap in enumerate(heatmaps):
+        heatmap = np.transpose(heatmap, (2, 0, 1))
+
+        masks = np.zeros((7, 2))
+        for j, hm in enumerate(heatmap):
+            (_, _, _, maxLoc) = cv2.minMaxLoc(hm)
+            masks[j] = maxLoc
+
+        results[i, :, :] = np.multiply(masks, 4)
+
+    return results
+
+def normalize(imgdata):
+    imgdata = cv2.equalizeHist(imgdata)
+    imgdata = imgdata / 255.0
+
+    return imgdata
+
+
+
+def get_coords(pkts):
+    def line_intersection(line1, line2):
+        xdiff = (line1[0][0] - line1[1][0], line2[0][0] - line2[1][0])
+        ydiff = (line1[0][1] - line1[1][1], line2[0][1] - line2[1][1])
+
+        def det(a, b):
+            return a[0] * b[1] - a[1] * b[0]
+
+        div = det(xdiff, ydiff)
+
+        d = (det(*line1), det(*line2))
+        x = det(d, xdiff) / div
+        y = det(d, ydiff) / div
+        return [x, y]
+
+    l = np.array(pkts[0], dtype=np.int32)
+    r = np.array(pkts[1], dtype=np.int32)
+    c_0 = line_intersection(pkts[3:5], pkts[5:7])
+    c_1 = pkts[2]
+    c = np.mean((c_0, c_1), axis=0, dtype=np.int32)
+
+    cor = np.stack([l, c, r])-l
+
+    def get_angle(point):
+        a = np.array((0, 0))
+        b = np.array((point[0], 0))
+        c = np.array((0, point[1]))
+
+        ba = a - b
+        bc = c - b
+
+        cosine_angle = np.dot(ba, bc) / \
+            (np.linalg.norm(ba) * np.linalg.norm(bc))
+        return np.arccos(cosine_angle)*np.sign(-point[1])
+
+    rad = get_angle(cor[2])
+    if np.isnan(rad):
+        rad = 0
+
+    def rotate(x, y, theta):
+        xr = np.cos(theta)*x-np.sin(theta)*y
+        yr = np.sin(theta)*x+np.cos(theta)*y
+        return [xr, np.abs(yr)]
+
+    cor[1] = rotate(*cor[1], rad)
+    cor[2] = rotate(*cor[2], rad)
+
+    cor = cor.astype(np.float32)
+    cor[1][0] /= cor[2][0]
+    cor[1][1] /= cor[2][0]
+
+    return cor[1]
+
+def check_focus(predicted):
+    left, right = predicted
+
+    left_pkts = get_coords(left)
+    right_pkts = get_coords(right)
+
+    #print(left_pkts, right_pkts)
+
+    if left_pkts[0] + right_pkts[0] > FOCUS_THRESH[0]:
+        return Events.BAD_FOCUS
+    # elif left_pkts[1] > FOCUS_THRESH[1] or right_pkts[1] > FOCUS_THRESH[1]:
+    #     return Events.BAD_FOCUS
+
+
+def test_draw_points(image, points):
+    image = cv2.resize(image, (128, 90))
+
+    for x, y in points:
+        cv2.circle(image, (int(x), int(y)), 1, (0, 0, 255), -1)
+
+    return image
