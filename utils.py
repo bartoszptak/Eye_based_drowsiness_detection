@@ -14,9 +14,9 @@ predictor = dlib.shape_predictor(
     path.join('data', 'shape_predictor_68_face_landmarks.dat'))
 
 FACE_THRESH = 25
-EYE_AR_THRESH = 0.15
-MOUTH_AR_THRESH = 1.0
-FOCUS_THRESH = [0.5, 0.1]
+EYE_AR_THRESH = 0.20
+FOCUS_THRESH = [0.15, 0.1]
+
 
 def cut_img_to_square(img):
     shape = img.shape
@@ -24,6 +24,7 @@ def cut_img_to_square(img):
     size = img.shape[0]//2
 
     return img[:, center-size:center+size, :]
+
 
 def get_face_points(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -36,14 +37,16 @@ def get_face_points(image):
     for (i, rect) in enumerate(rects):
         shape = predictor(gray, rect)
         shape = face_utils.shape_to_np(shape)
-    
+
     if abs(shape[32][0]-shape[3][0]) < FACE_THRESH or abs(shape[15][0]-shape[36][0])-100 < FACE_THRESH:
         return Events.NO_FACE
 
     return shape
 
+
 def get_eyes_points(shape):
-    return shape[36:42], shape[42:48] # left, right
+    return shape[36:42], shape[42:48]  # left, right
+
 
 def get_eye_aspect_ratio(eye_points):
     A = dist.euclidean(eye_points[1], eye_points[5])
@@ -52,6 +55,7 @@ def get_eye_aspect_ratio(eye_points):
 
     return (A + B) / (2.0 * C)
 
+
 def check_eyes(left, right):
     L = get_eye_aspect_ratio(left)
     R = get_eye_aspect_ratio(right)
@@ -59,12 +63,13 @@ def check_eyes(left, right):
     if (L+R)/2 < EYE_AR_THRESH:
         return Events.EYE_CLOSE
 
+
 def crop_eyes(image, left, right):
     left_img = image[min(left[:, 1]) - 5:max(left[:, 1]) + 5,
-                    min(left[:, 0]) - 5:max(left[:, 0]) + 5]
+                     min(left[:, 0]) - 5:max(left[:, 0]) + 5]
 
     right_img = image[min(right[:, 1]) - 5:max(right[:, 1]) + 5,
-                    min(right[:, 0]) - 5:max(right[:, 0]) + 5]
+                      min(right[:, 0]) - 5:max(right[:, 0]) + 5]
 
     return left_img, cv2.flip(right_img, +1)
 
@@ -72,6 +77,7 @@ def crop_eyes(image, left, right):
 def test_draw_face_points(image, shape):
     for (x, y) in shape:
         cv2.circle(image, (x, y), 1, (0, 0, 255), -1)
+
 
 def create_session_get_in_out(graph_path):
     tf.reset_default_graph()
@@ -85,17 +91,21 @@ def create_session_get_in_out(graph_path):
     tf.import_graph_def(graph_def)
 
     inp = session.graph.get_tensor_by_name("import/input_2:0")
-    outp = session.graph.get_tensor_by_name("import/0_conv_1x1_parts/BiasAdd:0")
+    outp = session.graph.get_tensor_by_name(
+        "import/0_conv_1x1_parts/BiasAdd:0")
 
     return session, inp, outp
 
+
 def predict(image, sess, inp, outp):
     return sess.run(outp, feed_dict={inp: image})
+
 
 def predict_eye(images, sess, inp, outp):
     input_data = preprocessing(images)
     predicted = predict(input_data, sess, inp, outp)
     return postprocessing(predicted)
+
 
 def preprocessing(images):
     left, right = images
@@ -115,6 +125,7 @@ def preprocessing(images):
 
     return _image
 
+
 def postprocessing(heatmaps):
     results = np.zeros((2, 7, 2))
     for i, heatmap in enumerate(heatmaps):
@@ -129,12 +140,12 @@ def postprocessing(heatmaps):
 
     return results
 
+
 def normalize(imgdata):
     imgdata = cv2.equalizeHist(imgdata)
     imgdata = imgdata / 255.0
 
     return imgdata
-
 
 
 def get_coords(pkts):
@@ -190,18 +201,17 @@ def get_coords(pkts):
 
     return cor[1]
 
+
 def check_focus(predicted):
     left, right = predicted
 
     left_pkts = get_coords(left)
     right_pkts = get_coords(right)
 
-    #print(left_pkts, right_pkts)
-
-    if left_pkts[0] + right_pkts[0] > FOCUS_THRESH[0]:
+    if not (0.5 - FOCUS_THRESH[0] < left_pkts[0] < 0.5 + FOCUS_THRESH[0]) or not (0.5 - FOCUS_THRESH[0] < right_pkts[0] < 0.5 + FOCUS_THRESH[0]):
         return Events.BAD_FOCUS
-    # elif left_pkts[1] > FOCUS_THRESH[1] or right_pkts[1] > FOCUS_THRESH[1]:
-    #     return Events.BAD_FOCUS
+    elif (left_pkts[1] + right_pkts[1])/2 > FOCUS_THRESH[1]:
+        return Events.BAD_FOCUS
 
 
 def test_draw_points(image, points):
