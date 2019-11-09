@@ -25,8 +25,7 @@ def cut_img_to_square(img):
 
     return img[:, center-size:center+size, :]
 
-
-def get_face_points(image):
+def get_face_points(image, debug):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     rects = detector(gray, 1)
 
@@ -37,6 +36,9 @@ def get_face_points(image):
     for (i, rect) in enumerate(rects):
         shape = predictor(gray, rect)
         shape = face_utils.shape_to_np(shape)
+
+    if debug:
+        test_draw_face_points(image, shape)
 
     if abs(shape[32][0]-shape[3][0]) < FACE_THRESH or abs(shape[15][0]-shape[36][0])-100 < FACE_THRESH:
         return Events.NO_FACE
@@ -56,9 +58,13 @@ def get_eye_aspect_ratio(eye_points):
     return (A + B) / (2.0 * C)
 
 
-def check_eyes(left, right):
+def check_eyes(left, right, img, debug):
     L = get_eye_aspect_ratio(left)
     R = get_eye_aspect_ratio(right)
+
+    if debug:
+        cv2.putText(img, f'EYE: L: {L:.2f} R: {R:.2f} THRESH: {EYE_AR_THRESH:.2f}', (20, 50), 
+                        cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 1, cv2.LINE_AA)
 
     if (L+R)/2 < EYE_AR_THRESH:
         return Events.EYE_CLOSE
@@ -202,11 +208,15 @@ def get_coords(pkts):
     return cor[1]
 
 
-def check_focus(predicted):
+def check_focus(predicted, img, debug):
     left, right = predicted
 
     left_pkts = get_coords(left)
     right_pkts = get_coords(right)
+
+    if debug:
+        cv2.putText(img, f'GAZE: L: {left_pkts} R: {right_pkts} THRESH: {FOCUS_THRESH}', (20, 70), 
+                        cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 1, cv2.LINE_AA)
 
     if not (0.5 - FOCUS_THRESH[0] < left_pkts[0] < 0.5 + FOCUS_THRESH[0]) or not (0.5 - FOCUS_THRESH[0] < right_pkts[0] < 0.5 + FOCUS_THRESH[0]):
         return Events.BAD_FOCUS
@@ -221,3 +231,17 @@ def test_draw_points(image, points):
         cv2.circle(image, (int(x), int(y)), 1, (0, 0, 255), -1)
 
     return image
+
+def make_buffer(cor, prev, buff_size=3):
+    if prev is None:
+        prev = np.stack([cor for _ in range(buff_size)])
+
+    buffer = np.empty((buff_size, *cor.shape))
+    buffer[:buff_size-1] = prev[1:]
+    buffer[buff_size-1] = cor
+    prev = buffer
+
+    sw = sum(buffer[i]*(i+1)
+                for i in range(buff_size))/sum(range(buff_size+1))
+
+    return np.array(sw, dtype=np.uint8), buffer
