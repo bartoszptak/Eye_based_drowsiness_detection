@@ -55,6 +55,8 @@ def main(debug):
         k = cv2.waitKey(1) & 0xFF
         if k == 27:
             break
+        if k == ord('p') and debug:
+            cv2.waitKey(0)
 
     cv2.destroyAllWindows()
     cap.release()

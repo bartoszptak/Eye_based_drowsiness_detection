@@ -15,7 +15,7 @@ predictor = dlib.shape_predictor(
 
 FACE_THRESH = 25
 EYE_AR_THRESH = 0.20
-FOCUS_THRESH = [0.15, 0.1]
+FOCUS_THRESH = [0.15, 0.15]
 
 
 def cut_img_to_square(img):
@@ -63,7 +63,7 @@ def check_eyes(left, right, img, debug):
     R = get_eye_aspect_ratio(right)
 
     if debug:
-        cv2.putText(img, f'EYE: L: {L:.2f} R: {R:.2f} THRESH: {EYE_AR_THRESH:.2f}', (20, 50), 
+        cv2.putText(img, f'EYE: L: {L:.2f} R: {R:.2f} THRESH: >{EYE_AR_THRESH:.2f}', (20, 50), 
                         cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 1, cv2.LINE_AA)
 
     if (L+R)/2 < EYE_AR_THRESH:
@@ -215,8 +215,13 @@ def check_focus(predicted, img, debug):
     right_pkts = get_coords(right)
 
     if debug:
-        cv2.putText(img, f'GAZE: L: {left_pkts} R: {right_pkts} THRESH: {FOCUS_THRESH}', (20, 70), 
+        cv2.putText(img, f'GAZE L: [{left_pkts[0]:.2f},{left_pkts[1]:.2f}]', (20, 70), 
                         cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 1, cv2.LINE_AA)
+        cv2.putText(img, f'GAZE R: [{right_pkts[0]:.2f},{right_pkts[1]:.2f}]', (20, 85), 
+                        cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 1, cv2.LINE_AA)
+        cv2.putText(img, f'THRESH: [{(0.5 -FOCUS_THRESH[0]):.2f}<x<{ (0.5+FOCUS_THRESH[0]):.2f}, y<{FOCUS_THRESH[1]:.2f}]', (20, 100), 
+                        cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 1, cv2.LINE_AA)
+        
 
     if not (0.5 - FOCUS_THRESH[0] < left_pkts[0] < 0.5 + FOCUS_THRESH[0]) or not (0.5 - FOCUS_THRESH[0] < right_pkts[0] < 0.5 + FOCUS_THRESH[0]):
         return Events.BAD_FOCUS
