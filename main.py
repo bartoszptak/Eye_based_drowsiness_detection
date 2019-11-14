@@ -6,7 +6,7 @@ import click
 from Events import *
 from utils import *
 
-net_path = path.join('data', 'inference.pb')
+net_path = path.join('data', 'frozen.pb')
 predictor_path = path.join('data', 'shape_predictor_68_face_landmarks.dat')
 
 
@@ -18,7 +18,7 @@ def main(debug):
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
-    sess, inp, outp = create_session_get_in_out(net_path)
+    net = create_net(net_path)
     detector, predictor = get_detector_and_predictor(predictor_path)
 
     prev = None
@@ -46,7 +46,7 @@ def main(debug):
             else:
                 reset_event(Events.EYE_CLOSE, counter_dict)
                 left_img, right_img = crop_eyes(img, left, right)
-                predicted = predict_eye((left_img, right_img), sess, inp, outp)
+                predicted = predict_eye((left_img, right_img), net)
                 focus = check_focus(predicted, img, debug)
                 if is_event(focus):
                     handle(focus, img, counter_dict)

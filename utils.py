@@ -167,31 +167,22 @@ def get_eyes_points(shape):
 # region net
 
 
-def create_session_get_in_out(graph_path):
-    tf.reset_default_graph()
-    session = tf.Session()
+def create_net(graph_path):
+    net = cv2.dnn.readNetFromTensorflow(graph_path)
 
-    with tf.gfile.GFile(graph_path, 'rb') as f:
-        graph_def = tf.GraphDef()
-        graph_def.ParseFromString(f.read())
-
-    session.graph.as_default()
-    tf.import_graph_def(graph_def)
-
-    inp = session.graph.get_tensor_by_name("import/input_2:0")
-    outp = session.graph.get_tensor_by_name(
-        "import/0_conv_1x1_parts/BiasAdd:0")
-
-    return session, inp, outp
+    return net
 
 
-def predict(image, sess, inp, outp):
-    return sess.run(outp, feed_dict={inp: image})
+def predict(image, net):
+    blob = cv2.dnn.blobFromImages(image, scalefactor=(
+        1/255), size=(128, 128), swapRB=False)
+    net.setInput(blob)
+    return net.forward()
 
 
-def predict_eye(images, sess, inp, outp):
+def predict_eye(images, net):
     input_data = preprocessing(images)
-    predicted = predict(input_data, sess, inp, outp)
+    predicted = predict(input_data, net)
     return postprocessing(predicted)
 
 
@@ -200,7 +191,6 @@ def preprocessing(images):
 
     def normalize(imgdata):
         imgdata = cv2.equalizeHist(imgdata)
-        imgdata = imgdata / 255.0
 
         return imgdata
 
@@ -212,7 +202,7 @@ def preprocessing(images):
     right = cv2.resize(right, (128, 90))
     right = normalize(right)
 
-    _image = np.zeros(shape=(2, 128, 128, 1), dtype=np.float)
+    _image = np.zeros(shape=(2, 128, 128, 1), dtype=np.uint8)
 
     _image[0, :90, :128, 0] = left
     _image[1, :90, :128, 0] = right
@@ -223,7 +213,6 @@ def preprocessing(images):
 def postprocessing(heatmaps):
     results = np.zeros((2, 7, 2))
     for i, heatmap in enumerate(heatmaps):
-        heatmap = np.transpose(heatmap, (2, 0, 1))
 
         masks = np.zeros((7, 2))
         for j, hm in enumerate(heatmap):
