@@ -44,14 +44,14 @@ def main(debug):
             if is_event(eye_close):
                 handle(eye_close, img, counter_dict)
             else:
-                reset_event(Events.EYE_CLOSE, counter_dict)
+                reset_event(Events.NO_FACE, counter_dict)
                 left_img, right_img = crop_eyes(img, left, right)
                 predicted = predict_eye((left_img, right_img), net)
                 focus = check_focus(predicted, img, debug)
                 if is_event(focus):
                     handle(focus, img, counter_dict)
                 else:
-                    reset_event(Events.BAD_FOCUS, counter_dict)
+                    reset_event(Events.NO_FACE, counter_dict)
 
         cv2.imshow("Eye based drowsiness detection", img)
 

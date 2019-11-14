@@ -93,9 +93,9 @@ def check_focus(predicted, img, debug):
                     cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 1, cv2.LINE_AA)
 
     if not (0.5 - FOCUS_THRESH[0] < left_pkts[0] < 0.5 + FOCUS_THRESH[0]) or not (0.5 - FOCUS_THRESH[0] < right_pkts[0] < 0.5 + FOCUS_THRESH[0]):
-        return Events.BAD_FOCUS
+        return Events.NO_FACE
     elif (left_pkts[1] + right_pkts[1])/2 > FOCUS_THRESH[1]:
-        return Events.BAD_FOCUS
+        return Events.NO_FACE
 
 
 def check_eyes(left, right, img, debug):
@@ -107,7 +107,7 @@ def check_eyes(left, right, img, debug):
                     cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 1, cv2.LINE_AA)
 
     if (L+R)/2 < EYE_AR_THRESH:
-        return Events.EYE_CLOSE
+        return Events.NO_FACE
 
 
 def test_draw_face_points(image, shape):

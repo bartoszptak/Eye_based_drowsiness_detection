@@ -6,15 +6,11 @@ import cv2
 
 
 class Events(Enum):
-    NO_FACE = ['Look at the road!', 2]
-    EYE_CLOSE = ['Open your eyes!', 2]
-    BAD_FOCUS = ['Focus on the road!', 3]
+    NO_FACE = ['Focus on the road!', 2]
 
 
 counter_dict = {
     Events.NO_FACE: None,
-    Events.EYE_CLOSE: None,
-    Events.BAD_FOCUS: None,
     'play_sound': None
 }
 
