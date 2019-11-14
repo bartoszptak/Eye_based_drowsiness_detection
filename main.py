@@ -6,6 +6,10 @@ import click
 from Events import *
 from utils import *
 
+net_path = path.join('data', 'inference.pb')
+predictor_path = path.join('data', 'shape_predictor_68_face_landmarks.dat')
+
+
 @click.command()
 @click.option('--debug', is_flag=True, help='#TODO')
 def main(debug):
@@ -14,8 +18,8 @@ def main(debug):
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
-    sess, inp, outp = create_session_get_in_out(
-        path.join('data', 'inference.pb'))
+    sess, inp, outp = create_session_get_in_out(net_path)
+    detector, predictor = get_detector_and_predictor(predictor_path)
 
     prev = None
     while True:
@@ -30,7 +34,7 @@ def main(debug):
 
         img, prev = make_buffer(img, prev)
 
-        shape = get_face_points(img, debug)
+        shape = get_face_points(img, debug, detector, predictor)
         if is_event(shape):
             handle(shape, img, counter_dict)
         else:
@@ -49,7 +53,6 @@ def main(debug):
                 else:
                     reset_event(Events.BAD_FOCUS, counter_dict)
 
-            
         cv2.imshow("Eye based drowsiness detection", img)
 
         k = cv2.waitKey(1) & 0xFF
