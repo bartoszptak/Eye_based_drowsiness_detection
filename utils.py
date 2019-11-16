@@ -5,7 +5,6 @@ import cv2
 import dlib
 from imutils import face_utils
 from scipy.spatial import distance as dist
-import tensorflow as tf
 
 from Events import Events
 
