@@ -6,11 +6,15 @@ import cv2
 
 
 class Events(Enum):
-    NO_FACE = ['Focus on the road!', 2]
+    NO_FACE = ['Look at the road!', 1]
+    EYE_CLOSE = ['Open your eyes!', 1]
+    BAD_FOCUS = ['Focus on the road!', 2]
 
 
 counter_dict = {
     Events.NO_FACE: None,
+    Events.EYE_CLOSE: None,
+    Events.BAD_FOCUS: None,
     'play_sound': None
 }
 
@@ -29,9 +33,9 @@ def handle(Event, img, counter_dict):
 
     local_time = time.time()
     if local_time-counter_dict[Event] > Event.value[1]:
-        cv2.putText(img, Event.value[0], (55, 20), cv2.FONT_HERSHEY_PLAIN,
-                    2, (0, 0, 255), 1, cv2.LINE_AA)
+        print(f"[ALARM] {Event.value[0]}")
 
         if counter_dict['play_sound'] is None or (local_time-counter_dict['play_sound']) > 2:
-            os.system(f'spd-say "{Event.value[0]}"')
+            #os.system(f'spd-say "{Event.value[0]}"')
+            #print("[INFO] Alarm")
             counter_dict['play_sound'] = local_time
