@@ -39,6 +39,7 @@ def main(debug):
             img = cv2.resize(squared, (432, 432))
 
             shape = get_face_points(img, debug, detector, predictor)
+            
             if is_event(shape):
                 handle(shape, img, counter_dict)
             else:

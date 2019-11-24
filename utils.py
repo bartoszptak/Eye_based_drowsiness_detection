@@ -140,6 +140,7 @@ def get_detector_and_predictor(predictor_path):
 
 def get_face_points(image, debug, detector, predictor):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    gray = cv2.resize(gray, (108,108))
     rects = detector(gray, 1)
 
     shape = None
@@ -150,6 +151,7 @@ def get_face_points(image, debug, detector, predictor):
         shape = predictor(gray, rect)
         shape = face_utils.shape_to_np(shape)
 
+    shape*=4
     if debug:
         test_draw_face_points(image, shape)
 
