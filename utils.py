@@ -113,20 +113,6 @@ def test_draw_face_points(image, shape):
     for (x, y) in shape:
         cv2.circle(image, (x, y), 1, (0, 0, 255), -1)
 
-
-def make_buffer(cor, prev, buff_size=3):
-    if prev is None:
-        prev = np.stack([cor for _ in range(buff_size)])
-
-    buffer = np.empty((buff_size, *cor.shape))
-    buffer[:buff_size-1] = prev[1:]
-    buffer[buff_size-1] = cor
-    prev = buffer
-
-    sw = sum(buffer[i]*(i+1)
-             for i in range(buff_size))/sum(range(buff_size+1))
-
-    return np.array(sw, dtype=np.uint8), buffer
 # endregion
 
 # region dlib

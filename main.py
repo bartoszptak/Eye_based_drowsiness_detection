@@ -27,7 +27,8 @@ def main(debug):
 
     fps = FPS().start()
     _ = vs.read()
-    time.sleep(1)    
+    _ = predict_eye(np.zeros((2,128,128,3), dtype=np.uint8), net) 
+    init_pin()
 
     print('[INFO] Started')
     try:
@@ -64,6 +65,7 @@ def main(debug):
     except KeyboardInterrupt:
         fps.stop()
         vs.stop()
+        clear_pins()
         print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
         #cv2.destroyAllWindows()
 
