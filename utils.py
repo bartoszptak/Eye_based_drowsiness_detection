@@ -1,5 +1,6 @@
 from os import path
 import numpy as np
+import time
 
 import cv2
 import dlib
@@ -169,8 +170,10 @@ def predict(image, net):
 
 def predict_eye(images, net):
     input_data = preprocessing(images)
+    
+    st = time.time()
     predicted = predict(input_data, net)
-    return postprocessing(predicted)
+    return postprocessing(predicted), (time.time()-st)
 
 
 def preprocessing(images):

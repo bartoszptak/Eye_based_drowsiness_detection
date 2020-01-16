@@ -3,7 +3,8 @@ import time
 
 import cv2
 import click
-from imutils.video import VideoStream, FPS
+import glob
+from imutils.video import FPS
 
 from Events import *
 from utils import *
@@ -15,7 +16,7 @@ predictor_path = path.join('data', 'shape_predictor_68_face_landmarks.dat')
 @click.command()
 @click.option('--debug', is_flag=True, help='#TODO')
 def main(debug):
-    vs = VideoStream().start()
+    imgs = glob.glob('im/*.png')
 
     #cap.set(cv2.CAP_PROP_FRAME_WIDTH, 960)
     #cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 540)
@@ -26,15 +27,17 @@ def main(debug):
     detector, predictor = get_detector_and_predictor(predictor_path)
 
     fps = FPS().start()
-    _ = vs.read()
+    
+    #_ = vs.read()
     _ = predict_eye(np.zeros((2,128,128,3), dtype=np.uint8), net) 
     init_pin()
 
     print('[INFO] Started')
+    inf_time = 0
+    inf_count = 0
     try:
-        while True:
-            raw = vs.read()
-         
+        for im in imgs:
+            raw = cv2.imread(im) 
             flipped = cv2.flip(raw, +1)
             squared = cut_img_to_square(flipped)
             img = cv2.resize(squared, (432, 432))
@@ -52,8 +55,14 @@ def main(debug):
                 else:
                     reset_event(Events.EYE_CLOSE, counter_dict)
                     left_img, right_img = crop_eyes(img, left, right)
-                    predicted, _ = predict_eye((left_img, right_img), net)
+                    
+                    
+                    predicted, tims = predict_eye((left_img, right_img), net)
+                    inf_time += tims
+                    inf_count += 1
+
                     focus = check_focus(predicted, img, debug)
+
                     if is_event(focus):
                         handle(focus, img, counter_dict)
                     else:
@@ -63,10 +72,15 @@ def main(debug):
             fps.update()
 
     except KeyboardInterrupt:
+        print("[INFO] STOP")
+    finally:
         fps.stop()
-        vs.stop()
         clear_pins()
         print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
+        print("[INFO] len of test: {}".format(len(imgs)))
+        print("[INFO] elapsed time: {:.2f}".format(fps.elapsed()))
+        print("[INFO] inference time: {:2f}".format(inf_time))
+        print("[INFO] inference count {}".format(inf_count))
         #cv2.destroyAllWindows()
 
 if __name__ == '__main__':
